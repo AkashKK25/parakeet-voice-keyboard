@@ -8,7 +8,9 @@ import android.content.pm.PackageManager
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
+import android.view.ContextThemeWrapper
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -60,7 +62,8 @@ class ParakeetInputMethodService : InputMethodService() {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreateInputView(): View {
-        val root = layoutInflater.inflate(R.layout.keyboard_view, null)
+        val themedContext = ContextThemeWrapper(this, R.style.Theme_ParakeetVoiceKeyboard)
+        val root = LayoutInflater.from(themedContext).inflate(R.layout.keyboard_view, null)
 
         tvStatus = root.findViewById(R.id.tvStatus)
         tvMicHint = root.findViewById(R.id.tvMicHint)
@@ -216,12 +219,12 @@ class ParakeetInputMethodService : InputMethodService() {
             scope = serviceScope,
             onAmplitude = { rms ->
                 val scaled = (rms * 400f).toInt().coerceIn(4, 100)
-                serviceScope.launch {
+                repeatHandler.post {
                     progressAudioLevel?.progress = scaled
                 }
             },
             onMaxDurationReached = {
-                serviceScope.launch {
+                repeatHandler.post {
                     stopAndTranscribe()
                 }
             },

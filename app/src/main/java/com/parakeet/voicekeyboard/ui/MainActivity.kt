@@ -17,6 +17,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.parakeet.voicekeyboard.ParakeetApplication
 import com.parakeet.voicekeyboard.R
 import com.parakeet.voicekeyboard.model.ModelManager
 import com.parakeet.voicekeyboard.model.ParakeetModelSpec
@@ -24,11 +26,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var modelManager: ModelManager
 
+    private lateinit var cardCrashLog: MaterialCardView
+    private lateinit var tvCrashLog: TextView
     private lateinit var tvPermissionStatus: TextView
     private lateinit var btnGrantPermission: MaterialButton
     private lateinit var rgModels: RadioGroup
@@ -76,6 +81,8 @@ class MainActivity : AppCompatActivity() {
 
         modelManager = ModelManager(applicationContext)
 
+        cardCrashLog = findViewById(R.id.cardCrashLog)
+        tvCrashLog = findViewById(R.id.tvCrashLog)
         tvPermissionStatus = findViewById(R.id.tvPermissionStatus)
         btnGrantPermission = findViewById(R.id.btnGrantPermission)
         rgModels = findViewById(R.id.rgModels)
@@ -84,6 +91,11 @@ class MainActivity : AppCompatActivity() {
         btnDownloadModel = findViewById(R.id.btnDownloadModel)
         btnImportModel = findViewById(R.id.btnImportModel)
         btnDeleteModel = findViewById(R.id.btnDeleteModel)
+
+        findViewById<MaterialButton>(R.id.btnClearCrashLog).setOnClickListener {
+            File(filesDir, ParakeetApplication.CRASH_LOG_FILE).delete()
+            cardCrashLog.visibility = View.GONE
+        }
 
         btnGrantPermission.setOnClickListener {
             requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
@@ -147,14 +159,26 @@ class MainActivity : AppCompatActivity() {
             imm.showInputMethodPicker()
         }
 
+        refreshCrashLogUi()
         refreshPermissionUi()
         refreshModelUi()
     }
 
     override fun onResume() {
         super.onResume()
+        refreshCrashLogUi()
         refreshPermissionUi()
         refreshModelUi()
+    }
+
+    private fun refreshCrashLogUi() {
+        val crashFile = File(filesDir, ParakeetApplication.CRASH_LOG_FILE)
+        if (crashFile.exists() && crashFile.length() > 0) {
+            tvCrashLog.text = crashFile.readText().take(2500)
+            cardCrashLog.visibility = View.VISIBLE
+        } else {
+            cardCrashLog.visibility = View.GONE
+        }
     }
 
     private fun refreshPermissionUi() {
@@ -177,6 +201,12 @@ class MainActivity : AppCompatActivity() {
             "Installed locally: ${spec.folderName}"
         } else {
             "Not installed (${spec.id})"
+        }
+        btnDownloadModel.isEnabled = !installed
+        btnDownloadModel.text = if (installed) {
+            "Model Installed"
+        } else {
+            getString(R.string.btn_download_model)
         }
         btnDeleteModel.isEnabled = installed
     }
