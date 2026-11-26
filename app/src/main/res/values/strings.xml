@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Parakeet Voice Keyboard</string>
+    <string name="ime_name">Parakeet Local Voice</string>
+    <string name="subtype_en_us">English (Parakeet Local)</string>
+    <string name="subtype_multilingual">Multilingual (Parakeet v3)</string>
+
+    <string name="setup_title">Parakeet Local Voice Keyboard</string>
+    <string name="setup_subtitle">100% on-device speech-to-text powered by NVIDIA Parakeet &amp; Sherpa-ONNX. Audio never leaves your phone.</string>
+
+    <string name="step_permission_title">1. Microphone Permission</string>
+    <string name="step_permission_granted">Granted</string>
+    <string name="step_permission_missing">Required for dictation</string>
+    <string name="btn_grant_permission">Grant Microphone Access</string>
+
+    <string name="step_model_title">2. Local Parakeet Model</string>
+    <string name="btn_download_model">Download Selected Model</string>
+    <string name="btn_import_model">Import Local .tar.bz2</string>
+    <string name="btn_delete_model">Remove Model</string>
+
+    <string name="step_ime_title">3. Enable &amp; Select Keyboard</string>
+    <string name="btn_enable_ime">Open Keyboard Settings</string>
+    <string name="btn_select_ime">Switch to Parakeet</string>
+
+    <string name="test_box_hint">Tap here and switch to Parakeet Voice to test offline dictation...</string>
+
+    <string name="status_ready">Parakeet Ready</string>
+    <string name="status_loading">Loading Parakeet...</string>
+    <string name="status_listening">Listening...</string>
+    <string name="status_transcribing">Transcribing locally...</string>
+    <string name="status_no_model">Model not installed — tap Settings</string>
+    <string name="status_no_permission">Mic permission needed</string>
+
+    <string name="key_space">Space</string>
+    <string name="key_undo">Undo</string>
+</resources>
