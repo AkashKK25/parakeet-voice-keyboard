@@ -119,7 +119,6 @@ class ParakeetInputMethodService : InputMethodService() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val heldMs = System.currentTimeMillis() - micDownTimeMs
                     if (audioRecorder.isRecording) {
-                        // Hold-to-talk (>350ms): stop on release; short tap: toggle mode
                         if (heldMs > 350L) {
                             stopAndTranscribe()
                         } else if (tvMicHint?.text == "Tap to Stop") {
@@ -158,8 +157,12 @@ class ParakeetInputMethodService : InputMethodService() {
             audioRecorder.stopAndCollect()
         }
         serviceScope.launch {
-            asrEngine.release()
-            serviceScope.cancel()
+            try {
+                asrEngine.release()
+            } catch (_: Throwable) {
+            } finally {
+                serviceScope.cancel()
+            }
         }
         super.onDestroy()
     }
@@ -174,17 +177,22 @@ class ParakeetInputMethodService : InputMethodService() {
             tvStatus?.text = getString(R.string.status_no_permission)
             return
         }
+        if (asrEngine.isReadyFor(spec.id)) {
+            if (!audioRecorder.isRecording) {
+                tvStatus?.text = getString(R.string.status_ready)
+            }
+            return
+        }
 
         tvStatus?.text = getString(R.string.status_loading)
         serviceScope.launch {
-            runCatching {
+            try {
                 asrEngine.ensureLoaded(spec, modelManager.getModelDir(spec))
-            }.onSuccess {
                 if (!audioRecorder.isRecording) {
                     tvStatus?.text = getString(R.string.status_ready)
                 }
-            }.onFailure { err ->
-                tvStatus?.text = "Load error: ${err.message}"
+            } catch (t: Throwable) {
+                tvStatus?.text = "Load error: ${t.message ?: t.javaClass.simpleName}"
             }
         }
     }
@@ -239,17 +247,15 @@ class ParakeetInputMethodService : InputMethodService() {
 
         tvStatus?.text = getString(R.string.status_transcribing)
         serviceScope.launch {
-            val text = runCatching {
-                asrEngine.transcribe(samples, AudioRecorder.SAMPLE_RATE)
-            }.getOrElse { err ->
-                tvStatus?.text = "Error: ${err.message}"
-                return@launch
+            try {
+                val text = asrEngine.transcribe(samples, AudioRecorder.SAMPLE_RATE)
+                if (text.isNotBlank()) {
+                    commitDictatedText(text)
+                }
+                tvStatus?.text = getString(R.string.status_ready)
+            } catch (t: Throwable) {
+                tvStatus?.text = "Error: ${t.message ?: t.javaClass.simpleName}"
             }
-
-            if (text.isNotBlank()) {
-                commitDictatedText(text)
-            }
-            tvStatus?.text = getString(R.string.status_ready)
         }
     }
 

@@ -18,7 +18,7 @@ class ModelManager(private val context: Context) {
     private val modelsRoot = File(context.filesDir, "models").apply { mkdirs() }
 
     fun getSelectedModel(): ParakeetModelSpec {
-        val savedId = prefs.getString(KEY_SELECTED_MODEL, ParakeetModelSpec.PARAKEET_TDT_V3.id)
+        val savedId = prefs.getString(KEY_SELECTED_MODEL, ParakeetModelSpec.PARAKEET_CTC_110M.id)
         return ParakeetModelSpec.fromId(savedId)
     }
 
@@ -47,15 +47,18 @@ class ModelManager(private val context: Context) {
         try {
             onProgress(0, "Connecting to GitHub Releases...")
             downloadFile(spec.archiveUrl, tmpArchive) { downloaded, total ->
-                val pct = if (total > 0) ((downloaded * 80L) / total).toInt() else 0
+                val pct = if (total > 0) ((downloaded * 70L) / total).toInt() else 0
                 val mb = downloaded / (1024 * 1024)
                 val totalMb = if (total > 0) "${total / (1024 * 1024)} MB" else "..."
                 onProgress(pct, "Downloading ${spec.id}: $mb MB / $totalMb")
             }
 
-            onProgress(85, "Extracting ONNX model files...")
+            onProgress(70, "Extracting ONNX model files (this may take 1-2 min)...")
             tmpArchive.inputStream().use { input ->
-                extractTarBz2(input)
+                extractTarBz2(input) { extractedMb, currentFile ->
+                    val pct = (70 + (extractedMb / 25).coerceAtMost(28)).toInt()
+                    onProgress(pct, "Extracting $currentFile ($extractedMb MB)...")
+                }
             }
 
             if (!isModelInstalled(spec)) {
@@ -71,20 +74,27 @@ class ModelManager(private val context: Context) {
         inputStream: InputStream,
         onProgress: (percent: Int, status: String) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        onProgress(20, "Extracting local .tar.bz2 archive...")
-        extractTarBz2(inputStream)
+        onProgress(10, "Extracting local .tar.bz2 archive...")
+        extractTarBz2(inputStream) { extractedMb, currentFile ->
+            val pct = (10 + (extractedMb / 10).coerceAtMost(88)).toInt()
+            onProgress(pct, "Extracting $currentFile ($extractedMb MB)...")
+        }
         onProgress(100, "Archive extracted")
     }
 
-    private fun extractTarBz2(rawInput: InputStream) {
+    private fun extractTarBz2(
+        rawInput: InputStream,
+        onExtractProgress: (extractedMb: Long, currentFile: String) -> Unit,
+    ) {
         BufferedInputStream(rawInput, 64 * 1024).use { buffered ->
-            BZip2CompressorInputStream(buffered).use { bz2 ->
+            BZip2CompressorInputStream(buffered, true).use { bz2 ->
                 TarArchiveInputStream(bz2).use { tar ->
                     var entry = tar.nextEntry
                     val buffer = ByteArray(64 * 1024)
+                    var totalExtractedBytes = 0L
+                    var lastReportedMb = -1L
                     while (entry != null) {
                         val outFile = File(modelsRoot, entry.name)
-                        // Prevent zip-slip path traversal
                         if (!outFile.canonicalPath.startsWith(modelsRoot.canonicalPath + File.separator)) {
                             throw SecurityException("Invalid tar entry path: ${entry.name}")
                         }
@@ -92,10 +102,17 @@ class ModelManager(private val context: Context) {
                             outFile.mkdirs()
                         } else {
                             outFile.parentFile?.mkdirs()
+                            val shortName = outFile.name
                             FileOutputStream(outFile).use { out ->
                                 var read: Int
                                 while (tar.read(buffer).also { read = it } != -1) {
                                     out.write(buffer, 0, read)
+                                    totalExtractedBytes += read
+                                    val mb = totalExtractedBytes / (1024 * 1024)
+                                    if (mb != lastReportedMb) {
+                                        lastReportedMb = mb
+                                        onExtractProgress(mb, shortName)
+                                    }
                                 }
                             }
                         }

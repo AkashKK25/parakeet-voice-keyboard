@@ -22,6 +22,9 @@ class ParakeetAsrEngine {
     val isReady: Boolean
         get() = recognizer != null
 
+    fun isReadyFor(modelId: String): Boolean =
+        recognizer != null && loadedModelId == modelId
+
     suspend fun ensureLoaded(
         spec: ParakeetModelSpec,
         modelDir: File,

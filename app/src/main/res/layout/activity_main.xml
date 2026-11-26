@@ -93,22 +93,22 @@
                     android:layout_marginTop="8dp">
 
                     <RadioButton
-                        android:id="@+id/rbParakeetV3"
+                        android:id="@+id/rbParakeet110m"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Parakeet TDT 0.6B v3 (int8, 25 European languages)" />
+                        android:text="Parakeet TDT-CTC 110M (int8, English, ~115 MB, Fast)" />
 
                     <RadioButton
                         android:id="@+id/rbParakeetV2"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Parakeet TDT 0.6B v2 (int8, English)" />
+                        android:text="Parakeet TDT 0.6B v2 (int8, English, ~640 MB)" />
 
                     <RadioButton
-                        android:id="@+id/rbParakeet110m"
+                        android:id="@+id/rbParakeetV3"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Parakeet TDT-CTC 110M (int8, Lightweight English)" />
+                        android:text="Parakeet TDT 0.6B v3 (int8, 25 Languages, ~640 MB)" />
                 </RadioGroup>
 
                 <TextView

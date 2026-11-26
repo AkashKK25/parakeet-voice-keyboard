@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.ProgressBar
 import android.widget.RadioButton
@@ -15,11 +16,13 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.parakeet.voicekeyboard.R
 import com.parakeet.voicekeyboard.model.ModelManager
 import com.parakeet.voicekeyboard.model.ParakeetModelSpec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -44,8 +47,8 @@ class MainActivity : AppCompatActivity() {
     ) { uri ->
         if (uri == null) return@registerForActivityResult
         setBusy(true)
-        lifecycleScope.launch {
-            runCatching {
+        appTaskScope.launch {
+            try {
                 contentResolver.openInputStream(uri)?.use { stream ->
                     modelManager.importFromArchiveStream(stream) { pct, msg ->
                         runOnUiThread {
@@ -54,11 +57,16 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } ?: error("Unable to open selected file")
-            }.onFailure { err ->
-                tvModelStatus.text = "Import failed: ${err.message}"
+                runOnUiThread {
+                    setBusy(false)
+                    refreshModelUi()
+                }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    setBusy(false)
+                    tvModelStatus.text = "Import failed: ${t.message ?: t.javaClass.simpleName}"
+                }
             }
-            setBusy(false)
-            refreshModelUi()
         }
     }
 
@@ -82,16 +90,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         when (modelManager.getSelectedModel()) {
-            ParakeetModelSpec.PARAKEET_TDT_V3 -> findViewById<RadioButton>(R.id.rbParakeetV3).isChecked = true
-            ParakeetModelSpec.PARAKEET_TDT_V2 -> findViewById<RadioButton>(R.id.rbParakeetV2).isChecked = true
             ParakeetModelSpec.PARAKEET_CTC_110M -> findViewById<RadioButton>(R.id.rbParakeet110m).isChecked = true
+            ParakeetModelSpec.PARAKEET_TDT_V2 -> findViewById<RadioButton>(R.id.rbParakeetV2).isChecked = true
+            ParakeetModelSpec.PARAKEET_TDT_V3 -> findViewById<RadioButton>(R.id.rbParakeetV3).isChecked = true
         }
 
         rgModels.setOnCheckedChangeListener { _, checkedId ->
             val spec = when (checkedId) {
                 R.id.rbParakeetV2 -> ParakeetModelSpec.PARAKEET_TDT_V2
-                R.id.rbParakeet110m -> ParakeetModelSpec.PARAKEET_CTC_110M
-                else -> ParakeetModelSpec.PARAKEET_TDT_V3
+                R.id.rbParakeetV3 -> ParakeetModelSpec.PARAKEET_TDT_V3
+                else -> ParakeetModelSpec.PARAKEET_CTC_110M
             }
             modelManager.setSelectedModel(spec)
             refreshModelUi()
@@ -100,19 +108,24 @@ class MainActivity : AppCompatActivity() {
         btnDownloadModel.setOnClickListener {
             val spec = modelManager.getSelectedModel()
             setBusy(true)
-            lifecycleScope.launch {
-                runCatching {
+            appTaskScope.launch {
+                try {
                     modelManager.downloadAndInstall(spec) { pct, msg ->
                         runOnUiThread {
                             progressModelDownload.progress = pct
                             tvModelStatus.text = msg
                         }
                     }
-                }.onFailure { err ->
-                    tvModelStatus.text = "Download failed: ${err.message}"
+                    runOnUiThread {
+                        setBusy(false)
+                        refreshModelUi()
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread {
+                        setBusy(false)
+                        tvModelStatus.text = "Download failed: ${t.message ?: t.javaClass.simpleName}"
+                    }
                 }
-                setBusy(false)
-                refreshModelUi()
             }
         }
 
@@ -169,10 +182,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setBusy(busy: Boolean) {
+        if (busy) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
         progressModelDownload.visibility = if (busy) View.VISIBLE else View.GONE
         btnDownloadModel.isEnabled = !busy
         btnImportModel.isEnabled = !busy
         btnDeleteModel.isEnabled = !busy
         rgModels.isEnabled = !busy
+    }
+
+    companion object {
+        private val appTaskScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
 }
